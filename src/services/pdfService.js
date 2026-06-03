@@ -78,9 +78,44 @@ function normalizeHeaderFooterTemplate(content, type) {
         line-height: 1.4;
         color: #000;
         width: 100%;
+        overflow: hidden;
+      }
+      .pdf-${type}-inner::after {
+        content: '';
+        display: table;
+        clear: both;
       }
       .pdf-${type}-inner p {
         margin: 0;
+      }
+      .se-image-container, .se-component {
+        max-width: 100%;
+        height: auto;
+      }
+      .__se__float-right {
+        float: right !important;
+        clear: none !important;
+        display: block;
+        width: auto;
+        margin-left: 10px !important;
+        margin-right: 0 !important;
+        margin-bottom: 4px;
+      }
+      .__se__float-left {
+        float: left !important;
+        clear: none !important;
+        display: block;
+        width: auto;
+        margin-right: 10px !important;
+        margin-left: 0 !important;
+        margin-bottom: 4px;
+      }
+      .__se__float-center, .__se__float-none {
+        float: none !important;
+        clear: both !important;
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
       }
     </style>
     <div class="pdf-${type}-inner" style="width: 100%; ${paddingStyle}">
@@ -128,6 +163,28 @@ class PdfService {
     return this.initPromise;
   }
 
+  // Render a header/footer template in a temporary page and return its actual height in px.
+  // This lets us set margin.top/bottom to exactly the right value so content never overlaps.
+  async measureTemplateHeight(html, type) {
+    const rendered = normalizeHeaderFooterTemplate(html, type);
+    const page = await this.browser.newPage();
+    try {
+      await page.setContent(rendered, { waitUntil: ['networkidle0', 'domcontentloaded'], timeout: 15000 });
+      await page.evaluate(() => document.fonts.ready);
+      const height = await page.evaluate(() => {
+        const el = document.body.firstElementChild;
+        if (!el) return 60;
+        // Use scrollHeight to capture full content including floated children
+        return Math.max(el.scrollHeight, el.getBoundingClientRect().height);
+      });
+      return Math.ceil(height);
+    } catch (e) {
+      return 60; // safe fallback
+    } finally {
+      await page.close();
+    }
+  }
+
   async generatePdf(template, data, options = {}) {
     await this.init();
 
@@ -140,11 +197,29 @@ class PdfService {
     // Build watermark config
     const watermark = {
       enabled: template.watermark_enabled === 1,
+      type: template.watermark_type || 'text',
       text: template.watermark_text || '',
+      image: template.watermark_image || '',
       options: template.watermark_options ? JSON.parse(template.watermark_options) : {}
     };
 
     const html = renderTemplate(template.html_content, template.css_content, data, watermark);
+
+    const hasHeader = template.header_html && template.header_html.trim().length > 0;
+    const hasFooter = template.footer_html && template.footer_html.trim().length > 0;
+    const footerSkipPages = template.footer_skip_pages ? template.footer_skip_pages.trim() : '';
+
+    // Measure actual header / footer heights so margins are always exact.
+    // We do this before opening the main page to avoid holding two pages at once.
+    let headerHeightPx = 0;
+    let footerHeightPx = 0;
+
+    if (hasHeader) {
+      headerHeightPx = await this.measureTemplateHeight(template.header_html, 'header');
+    }
+    if (hasFooter) {
+      footerHeightPx = await this.measureTemplateHeight(template.footer_html, 'footer');
+    }
 
     const page = await this.browser.newPage();
     try {
@@ -169,32 +244,28 @@ class PdfService {
         preferCSSPageSize: true
       };
 
-      // Add header/footer if present
-      const hasHeader = template.header_html && template.header_html.trim().length > 0;
-      const hasFooter = template.footer_html && template.footer_html.trim().length > 0;
-      const footerSkipPages = template.footer_skip_pages ? template.footer_skip_pages.trim() : '';
-
       if (hasHeader || hasFooter) {
         pdfOptions.displayHeaderFooter = true;
 
         if (hasHeader) {
-          pdfOptions.margin.top = ensureMinimumMargin(pdfOptions.margin.top, 50);
+          // Use the measured height + 8 px breathing room as the top margin.
+          const needed = headerHeightPx + 8;
+          pdfOptions.margin.top = ensureMinimumMargin(pdfOptions.margin.top, needed);
           pdfOptions.headerTemplate = normalizeHeaderFooterTemplate(template.header_html, 'header');
         } else {
-          // No header content: use empty template and free up top margin space
           pdfOptions.headerTemplate = '<div></div>';
           pdfOptions.margin.top = '0px';
         }
 
         if (hasFooter) {
-          pdfOptions.margin.bottom = ensureMinimumMargin(pdfOptions.margin.bottom, 50);
+          const needed = footerHeightPx + 8;
+          pdfOptions.margin.bottom = ensureMinimumMargin(pdfOptions.margin.bottom, needed);
           let footerTemplate = template.footer_html;
           if (footerSkipPages) {
             footerTemplate = wrapFooterWithSkipLogic(footerTemplate, footerSkipPages);
           }
           pdfOptions.footerTemplate = normalizeHeaderFooterTemplate(footerTemplate, 'footer');
         } else {
-          // No footer content: use empty template and free up bottom margin space
           pdfOptions.footerTemplate = '<div></div>';
           pdfOptions.margin.bottom = '0px';
         }

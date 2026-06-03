@@ -224,10 +224,10 @@ function renderTemplate(html, css, data = {}, watermark = null) {
 
   // SunEditor compatibility CSS (image alignment classes used by rich editor)
   const sunEditorCompatCss = `
-    .__se__float-left { float: none !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: 0 !important; margin-right: auto !important; clear: both; }
-    .__se__float-right { float: none !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: 0 !important; clear: both; }
-    .__se__float-center { float: none !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; clear: both; }
-    .__se__float-none { float: none !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; clear: both; }
+    .__se__float-left { float: left !important; clear: none !important; display: block; width: auto; margin-right: 12px !important; margin-left: 0 !important; margin-bottom: 8px; }
+    .__se__float-right { float: right !important; clear: none !important; display: block; width: auto; margin-left: 12px !important; margin-right: 0 !important; margin-bottom: 8px; }
+    .__se__float-center { float: none !important; clear: both !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; }
+    .__se__float-none { float: none !important; clear: both !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; }
     .se-image-container { max-width: 100%; height: auto; }
     .se-video-container { width: auto; height: auto; max-width: 100%; }
     table { border-collapse: collapse; width: 100%; }

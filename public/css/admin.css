@@ -426,43 +426,43 @@ body {
 }
 
 .rich-editor-wrapper .sun-editor .sun-editor-editable .__se__float-left {
-  float: none !important;
-  display: block !important;
-  width: fit-content !important;
-  max-width: 100%;
+  float: left !important;
+  clear: none !important;
+  display: block;
+  width: auto;
+  margin-right: 12px !important;
   margin-left: 0 !important;
-  margin-right: auto !important;
-  clear: both;
+  margin-bottom: 8px;
 }
 
 .rich-editor-wrapper .sun-editor .sun-editor-editable .__se__float-right {
-  float: none !important;
-  display: block !important;
-  width: fit-content !important;
-  max-width: 100%;
-  margin-left: auto !important;
+  float: right !important;
+  clear: none !important;
+  display: block;
+  width: auto;
+  margin-left: 12px !important;
   margin-right: 0 !important;
-  clear: both;
+  margin-bottom: 8px;
 }
 
 .rich-editor-wrapper .sun-editor .sun-editor-editable .__se__float-center {
   float: none !important;
+  clear: both !important;
   display: block !important;
   width: fit-content !important;
   max-width: 100%;
   margin-left: auto !important;
   margin-right: auto !important;
-  clear: both;
 }
 
 .rich-editor-wrapper .sun-editor .sun-editor-editable .__se__float-none {
   float: none !important;
+  clear: both !important;
   display: block !important;
   width: fit-content !important;
   max-width: 100%;
   margin-left: auto !important;
   margin-right: auto !important;
-  clear: both;
 }
 
 .rich-editor-container .sun-editor {
