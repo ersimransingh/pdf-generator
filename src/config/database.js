@@ -1,8 +1,14 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
 const DB_PATH = path.resolve(process.env.DB_PATH || './data/database.sqlite');
+const DB_DIR = path.dirname(DB_PATH);
+
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
 
 const db = new Database(DB_PATH);
 

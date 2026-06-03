@@ -4,6 +4,14 @@ const fs = require('fs');
 const { renderTemplate } = require('../utils/templateEngine');
 const logger = require('../utils/logger');
 
+const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
+
+function ensureDirectoryExists(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
 function wrapFooterWithSkipLogic(footerHtml, skipPages) {
   const skipList = skipPages.split(',').map(s => s.trim()).filter(Boolean);
   if (skipList.length === 0) return footerHtml;
@@ -202,7 +210,8 @@ class PdfService {
   async generatePdfToFile(template, data, options = {}) {
     const pdfBuffer = await this.generatePdf(template, data, options);
     const filename = `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 10)}.pdf`;
-    const filePath = path.join(__dirname, '../../uploads', filename);
+    ensureDirectoryExists(UPLOADS_DIR);
+    const filePath = path.join(UPLOADS_DIR, filename);
     fs.writeFileSync(filePath, pdfBuffer);
     return { filename, filePath };
   }
