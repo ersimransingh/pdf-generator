@@ -1,0 +1,25 @@
+{
+  "name": "pdf-generator-saas",
+  "version": "1.0.0",
+  "description": "PDF Generation SaaS with HTML templates and Puppeteer",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "node test.js"
+  },
+  "keywords": ["pdf", "generator", "saas", "puppeteer", "html", "templates"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-validator": "^7.0.1",
+    "puppeteer": "^22.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
