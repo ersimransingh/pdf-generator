@@ -179,8 +179,8 @@ const varPanel = (function () {
             ${badge(it.type)}
             <div style="flex:1;min-width:0;">
               <div style="font-size:12px;font-weight:500;color:#1e293b;font-family:monospace;
-                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.insert}</div>
-              ${it.preview ? `<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(it.preview)}</div>` : ''}
+                          word-break:break-all;">${it.insert}</div>
+              ${it.preview ? `<div style="font-size:11px;color:#94a3b8;word-break:break-all;">${escapeHtml(it.preview)}</div>` : ''}
             </div>
           </div>`;
         }).join('')
