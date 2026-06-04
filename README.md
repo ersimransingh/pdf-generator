@@ -1,5 +1,5 @@
 # PDF Generator SaaS
-# CHK
+
 A complete PDF generation service built with Node.js, Express, SQLite, and Puppeteer. Create HTML templates with dynamic placeholders, preview them in real-time, and generate professional PDFs with full CSS support.
 
 ## Features
