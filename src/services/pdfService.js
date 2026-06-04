@@ -124,6 +124,15 @@ function normalizeHeaderFooterTemplate(content, type) {
   `;
 }
 
+// PDF page widths in CSS pixels (96 dpi) per format and orientation.
+// Used to size the measurement viewport so image scaling matches the real PDF.
+const PDF_PAGE_WIDTHS = {
+  A4:     { portrait: 794,  landscape: 1123 },
+  Letter: { portrait: 816,  landscape: 1056 },
+  Legal:  { portrait: 816,  landscape: 1056 },
+  A3:     { portrait: 1123, landscape: 1587 }
+};
+
 function ensureMinimumMargin(value, minimumPx) {
   if (!value) return `${minimumPx}px`;
   const match = String(value).trim().match(/^(\d+(?:\.\d+)?)px$/i);
@@ -164,17 +173,28 @@ class PdfService {
   }
 
   // Render a header/footer template in a temporary page and return its actual height in px.
-  // This lets us set margin.top/bottom to exactly the right value so content never overlaps.
-  async measureTemplateHeight(html, type) {
+  // pageSize / orientation are used to set the viewport width to match the real PDF page so
+  // images (especially base64 ones) scale to the same dimensions as in the final output.
+  async measureTemplateHeight(html, type, pageSize = 'A4', orientation = 'portrait') {
     const rendered = normalizeHeaderFooterTemplate(html, type);
+    const widthPx = (PDF_PAGE_WIDTHS[pageSize] || PDF_PAGE_WIDTHS.A4)[orientation] || 794;
     const page = await this.browser.newPage();
     try {
+      await page.setViewport({ width: widthPx, height: 1200 });
       await page.setContent(rendered, { waitUntil: ['networkidle0', 'domcontentloaded'], timeout: 15000 });
       await page.evaluate(() => document.fonts.ready);
+      // Wait for every image to finish decoding before measuring — base64 images decode
+      // asynchronously and layout height is wrong if measured before decode completes.
+      await page.evaluate(() => Promise.all(
+        Array.from(document.images).map(img =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })
+        )
+      ));
       const height = await page.evaluate(() => {
         const el = document.body.firstElementChild;
         if (!el) return 60;
-        // Use scrollHeight to capture full content including floated children
         return Math.max(el.scrollHeight, el.getBoundingClientRect().height);
       });
       return Math.ceil(height);
@@ -215,10 +235,10 @@ class PdfService {
     let footerHeightPx = 0;
 
     if (hasHeader) {
-      headerHeightPx = await this.measureTemplateHeight(template.header_html, 'header');
+      headerHeightPx = await this.measureTemplateHeight(template.header_html, 'header', pageSize, orientation);
     }
     if (hasFooter) {
-      footerHeightPx = await this.measureTemplateHeight(template.footer_html, 'footer');
+      footerHeightPx = await this.measureTemplateHeight(template.footer_html, 'footer', pageSize, orientation);
     }
 
     const page = await this.browser.newPage();
@@ -248,8 +268,11 @@ class PdfService {
         pdfOptions.displayHeaderFooter = true;
 
         if (hasHeader) {
-          // Use the measured height + 8 px breathing room as the top margin.
-          const needed = headerHeightPx + 8;
+          // Use the measured height + 16 px breathing room as the top margin.
+          // The extra buffer absorbs sub-pixel differences between the measurement
+          // viewport and Puppeteer's internal PDF renderer, which is especially
+          // noticeable when the header contains images.
+          const needed = headerHeightPx + 16;
           pdfOptions.margin.top = ensureMinimumMargin(pdfOptions.margin.top, needed);
           pdfOptions.headerTemplate = normalizeHeaderFooterTemplate(template.header_html, 'header');
         } else {
@@ -258,7 +281,7 @@ class PdfService {
         }
 
         if (hasFooter) {
-          const needed = footerHeightPx + 8;
+          const needed = footerHeightPx + 16;
           pdfOptions.margin.bottom = ensureMinimumMargin(pdfOptions.margin.bottom, needed);
           let footerTemplate = template.footer_html;
           if (footerSkipPages) {
