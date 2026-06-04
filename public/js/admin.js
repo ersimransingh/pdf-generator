@@ -299,9 +299,16 @@ document.querySelectorAll('.js-editor-snippet').forEach((btn) => {
 });
 
 function registerJoditControls() {
+  Jodit.modules.Icon.set('tableBorderToggle',
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>'
+  );
+  Jodit.modules.Icon.set('pageBreak',
+    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 15h16v2H4zm0 4h16v2H4zM4 5h16v2H4zm0 4h16v2H4zm0-8h16v2H4zm0 4h5v2H4zm11 0h5v2h-5z"/></svg>'
+  );
+
   Jodit.defaultOptions.controls.tableBorderToggle = {
     tooltip: 'Toggle borders on selected table',
-    iconHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
+    icon: 'tableBorderToggle',
     exec(editor) {
       const cur = editor.s.current();
       if (!cur) { showToast('Place your cursor inside a table first', 'warning'); return; }
@@ -321,38 +328,9 @@ function registerJoditControls() {
     }
   };
 
-  Jodit.defaultOptions.controls.uploadImage = {
-    tooltip: 'Upload Image from Computer',
-    iconHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13a1 1 0 0 0-1 1v4H6v-4a1 1 0 0 0-2 0v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4a1 1 0 0 0-1-1zm-7-9.41-2.29 2.3a1 1 0 0 1-1.42-1.42l4-4a1 1 0 0 1 1.42 0l4 4a1 1 0 0 1-1.42 1.42L13 3.59V14a1 1 0 0 1-2 0V3.59z"/></svg>',
-    exec(editor) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml';
-      input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-      document.body.appendChild(input);
-      input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
-        document.body.removeChild(input);
-        if (!file) return;
-        if (file.size > 5 * 1024 * 1024) {
-          showToast('Image must be under 5 MB', 'error');
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          editor.s.insertHTML(
-            `<img src="${e.target.result}" alt="${file.name.replace(/"/g, '')}" style="max-width:100%;">`
-          );
-        };
-        reader.readAsDataURL(file);
-      });
-      input.click();
-    }
-  };
-
   Jodit.defaultOptions.controls.pageBreak = {
     tooltip: 'Insert Page Break',
-    iconHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4 15h16v2H4zm0 4h16v2H4zM4 5h16v2H4zm0 4h16v2H4zm0-8h16v2H4zm0 4h5v2H4zm11 0h5v2h-5z"/></svg>',
+    icon: 'pageBreak',
     exec(editor) {
       editor.s.insertHTML('<div style="page-break-after:always;height:0;border-top:2px dashed #94a3b8;margin:8px 0;"></div>');
     }
@@ -373,7 +351,7 @@ function initRichEditor(key) {
           'align', 'ul', 'ol', '|',
           'outdent', 'indent', '|',
           'hr', 'table', 'tableBorderToggle', '|',
-          'link', 'image', 'uploadImage', '|',
+          'link', 'image', '|',
           'eraser', 'copyformat', '|',
           'symbols', '|',
           'pageBreak', '|',
