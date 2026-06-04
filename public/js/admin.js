@@ -50,19 +50,6 @@ const wmImageOpacity = document.getElementById('wm-image-opacity');
 const wmImageOpacityVal = document.getElementById('wm-image-opacity-val');
 const footerSkipPages = document.getElementById('footer-skip-pages');
 
-// Hidden color inputs for table plugins
-const tableBgInput = document.createElement('input');
-tableBgInput.type = 'color';
-tableBgInput.style.position = 'absolute';
-tableBgInput.style.visibility = 'hidden';
-document.body.appendChild(tableBgInput);
-
-const tableBorderInput = document.createElement('input');
-tableBorderInput.type = 'color';
-tableBorderInput.style.position = 'absolute';
-tableBorderInput.style.visibility = 'hidden';
-document.body.appendChild(tableBorderInput);
-
 const headerFooterPdfVars = {
   pageNumber: { text: 'Page Number', output: '<span class="pageNumber"></span>' },
   totalPages: { text: 'Total Pages', output: '<span class="totalPages"></span>' },
@@ -101,377 +88,6 @@ function getEncodedHeaderFooterSnippet(key) {
   if (!meta) return '';
   return encodeHeaderFooterPlaceholders(meta.output);
 }
-
-function getSelectedTableCells(selection) {
-  if (!selection || selection.rangeCount === 0) return [];
-
-  const range = selection.getRangeAt(0);
-  let anchorNode = selection.anchorNode;
-  if (anchorNode && anchorNode.nodeType === 3) anchorNode = anchorNode.parentElement;
-  const anchorCell = anchorNode && anchorNode.closest ? anchorNode.closest('td, th') : null;
-  const anchorTable = anchorCell ? anchorCell.closest('table') : null;
-
-  if (!range.collapsed && anchorTable) {
-    const cells = Array.from(anchorTable.querySelectorAll('td, th')).filter(function(cell) {
-      try {
-        return range.intersectsNode(cell);
-      } catch (err) {
-        return false;
-      }
-    });
-    if (cells.length) return cells;
-  }
-
-  return anchorCell ? [anchorCell] : [];
-}
-
-// SunEditor custom plugins
-const pageBreakPlugin = {
-  name: 'pageBreak',
-  display: 'command',
-  title: 'Insert Page Break',
-  innerHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z"/></svg>',
-  add: function(core, targetElement) {},
-  action: function() {
-    this.execCommand('insertHTML', false, '<div style="page-break-after: always; height: 0;"></div>');
-  }
-};
-
-const tableCellBackgroundPlugin = {
-  name: 'tableCellBackground',
-  display: 'command',
-  title: 'Cell Background Color',
-  innerHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2l-5.5 9h11z"/><circle cx="17.5" cy="17.5" r="4.5" fill="currentColor"/><path d="M3 13.5h8v8H3z"/></svg>',
-  add: function(core, targetElement) {},
-  action: function() {
-    const selection = this.getSelection();
-    const cells = getSelectedTableCells(selection);
-    if (!cells.length) {
-      showToast('Place cursor inside a table cell first', 'warning');
-      return;
-    }
-    tableBgInput.onchange = function() {
-      const color = tableBgInput.value;
-      cells.forEach(function(cell) {
-        cell.style.backgroundColor = color;
-        // Ensure child elements don't hide the cell background
-        cell.querySelectorAll('p, div, span').forEach(function(child) {
-          if (!child.style.backgroundColor) {
-            child.style.backgroundColor = 'transparent';
-          }
-        });
-      });
-    };
-    tableBgInput.click();
-  }
-};
-
-// Floating panel for combined table border settings
-const tableBorderPanel = (function() {
-  const el = document.createElement('div');
-  el.style.cssText = 'display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);min-width:230px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
-  el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <span style="font-size:13px;font-weight:600;color:#1e293b;">Table Border</span>
-      <button id="tbs-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;line-height:1;padding:0 2px;">&#10005;</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <label style="font-size:12px;color:#475569;width:44px;flex-shrink:0;">Color</label>
-        <input type="color" id="tbs-color" value="#000000" style="width:36px;height:26px;border:1px solid #cbd5e1;border-radius:4px;cursor:pointer;padding:1px;">
-        <span id="tbs-color-val" style="font-size:11px;color:#64748b;">#000000</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <label style="font-size:12px;color:#475569;width:44px;flex-shrink:0;">Width</label>
-        <input type="number" id="tbs-width" value="1" min="0" max="20" style="width:54px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
-        <span style="font-size:12px;color:#64748b;">px</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <label style="font-size:12px;color:#475569;width:44px;flex-shrink:0;">Style</label>
-        <select id="tbs-style" style="flex:1;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-          <option value="double">Double</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <button id="tbs-apply" style="flex:1;padding:7px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">Apply to Table</button>
-        <button id="tbs-remove" style="padding:7px 10px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;font-size:12px;cursor:pointer;">Remove</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(el);
-
-  const colorInput = el.querySelector('#tbs-color');
-  const colorVal   = el.querySelector('#tbs-color-val');
-  const widthInput = el.querySelector('#tbs-width');
-  const styleSelect = el.querySelector('#tbs-style');
-
-  colorInput.addEventListener('input', () => { colorVal.textContent = colorInput.value; });
-
-  function applyBorder() {
-    const table = el._table;
-    if (!table) return;
-    const w = (widthInput.value || '1') + 'px';
-    const s = styleSelect.value;
-    const c = colorInput.value;
-    const borderVal = `${w} ${s} ${c}`;
-    table.style.borderCollapse = 'collapse';
-    table.style.border = borderVal;
-    table.querySelectorAll('td, th').forEach(cell => { cell.style.border = borderVal; });
-    el.style.display = 'none';
-  }
-
-  el.querySelector('#tbs-apply').addEventListener('click', applyBorder);
-
-  el.querySelector('#tbs-remove').addEventListener('click', () => {
-    const table = el._table;
-    if (!table) return;
-    table.style.border = '';
-    table.style.borderCollapse = '';
-    table.querySelectorAll('td, th').forEach(cell => { cell.style.border = ''; });
-    el.style.display = 'none';
-  });
-
-  el.querySelector('#tbs-close').addEventListener('click', () => { el.style.display = 'none'; });
-
-  document.addEventListener('mousedown', (e) => {
-    if (el.style.display === 'none') return;
-    if (!el.contains(e.target)) el.style.display = 'none';
-  }, true);
-
-  el.show = function(table, anchorEl) {
-    el._table = table;
-    // Pre-fill from existing table styles
-    const existingColor = table.style.borderColor || '#000000';
-    colorInput.value = /^#[0-9a-f]{6}$/i.test(existingColor) ? existingColor : '#000000';
-    colorVal.textContent = colorInput.value;
-    widthInput.value = parseInt(table.style.borderWidth) || 1;
-    styleSelect.value = table.style.borderStyle || 'solid';
-    // Position below the anchor button
-    if (anchorEl) {
-      const rect = anchorEl.getBoundingClientRect();
-      const panelW = 240;
-      let left = rect.left;
-      if (left + panelW > window.innerWidth - 8) left = window.innerWidth - panelW - 8;
-      el.style.top  = (rect.bottom + 6) + 'px';
-      el.style.left = left + 'px';
-      el.style.right = 'auto';
-    }
-    el.style.display = 'block';
-  };
-
-  return el;
-})();
-
-let _activeBorderBtn = null;
-
-const tableBorderSettingsPlugin = {
-  name: 'tableBorderSettings',
-  display: 'command',
-  title: 'Table Border Settings',
-  innerHTML: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>',
-  add: function(core, targetElement) {
-    targetElement.addEventListener('mousedown', () => { _activeBorderBtn = targetElement; });
-  },
-  action: function() {
-    const selection = this.getSelection();
-    let node = selection ? selection.anchorNode : null;
-    if (!node) return;
-    if (node.nodeType === 3) node = node.parentElement;
-    const table = node ? node.closest('table') : null;
-    if (!table) { showToast('Place cursor inside a table first', 'warning'); return; }
-    tableBorderPanel.show(table, _activeBorderBtn);
-  }
-};
-
-const tableFullWidthPlugin = {
-  name: 'tableFullWidth',
-  display: 'command',
-  title: 'Table Full Width',
-  innerHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 3h18v18H3V3zm16 16V5H5v14h14z"/><path d="M3 9h18v2H3zm0 6h18v2H3zm8-12v18H9V3z"/></svg>',
-  add: function(core, targetElement) {},
-  action: function() {
-    const selection = this.getSelection();
-    let node = selection ? selection.anchorNode : null;
-    if (!node) return;
-    if (node.nodeType === 3) node = node.parentElement;
-    const table = node.closest('table');
-    if (!table) {
-      showToast('Place cursor inside a table first', 'warning');
-      return;
-    }
-    table.style.width = '100%';
-    table.querySelectorAll('td, th').forEach(function(c) {
-      c.style.wordBreak = 'break-word';
-    });
-  }
-};
-
-// Column width percentage panel
-const colWidthPanel = (function() {
-  const el = document.createElement('div');
-  el.style.cssText = 'display:none;position:fixed;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);width:260px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-height:80vh;overflow-y:auto;';
-  document.body.appendChild(el);
-
-  function getColCount(table) {
-    const firstRow = table.querySelector('tr');
-    return firstRow ? firstRow.cells.length : 0;
-  }
-
-  function getCurrentWidths(table, n) {
-    const w = new Array(n).fill('');
-    const cg = table.querySelector('colgroup');
-    if (cg) {
-      cg.querySelectorAll('col').forEach((col, i) => {
-        if (i < n) w[i] = col.style.width || col.getAttribute('width') || '';
-      });
-    } else {
-      const firstRow = table.querySelector('tr');
-      if (firstRow) Array.from(firstRow.cells).forEach((c, i) => {
-        if (i < n) w[i] = c.style.width || c.getAttribute('width') || '';
-      });
-    }
-    return w;
-  }
-
-  function applyWidths(table, widths) {
-    table.style.tableLayout = 'fixed';
-    table.style.width = '100%';
-    // Update / create <colgroup> with <col> elements — most reliable for PDF
-    let cg = table.querySelector('colgroup');
-    if (!cg) { cg = document.createElement('colgroup'); table.insertBefore(cg, table.firstChild); }
-    cg.innerHTML = '';
-    widths.forEach(w => {
-      const col = document.createElement('col');
-      if (w) col.style.width = w;
-      cg.appendChild(col);
-    });
-    // Also stamp width onto every cell in each column so it survives HTML serialisation
-    table.querySelectorAll('tr').forEach(row => {
-      Array.from(row.cells).forEach((cell, i) => {
-        if (i < widths.length) {
-          if (widths[i]) cell.style.width = widths[i];
-          else cell.style.removeProperty('width');
-        }
-      });
-    });
-  }
-
-  function render(table) {
-    const n = getColCount(table);
-    if (!n) return;
-    const cur = getCurrentWidths(table, n);
-
-    const rows = Array.from({ length: n }, (_, i) => {
-      const v = cur[i] ? parseFloat(cur[i]) : '';
-      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <label style="font-size:12px;color:#475569;width:48px;flex-shrink:0;">Col ${i + 1}</label>
-        <input type="number" id="cwp-${i}" min="1" max="100" step="1" value="${v}" placeholder="auto"
-               style="width:68px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
-        <span style="font-size:12px;color:#64748b;">%</span>
-      </div>`;
-    }).join('');
-
-    el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <span style="font-size:13px;font-weight:600;color:#1e293b;">Column Widths</span>
-        <button id="cwp-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;line-height:1;padding:0 2px;">&#10005;</button>
-      </div>
-      <div>${rows}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px;padding:6px 8px;background:#f8fafc;border-radius:6px;font-size:12px;">
-        <span style="color:#475569;">Total</span>
-        <span id="cwp-total" style="font-weight:600;color:#334155;">0%</span>
-        <span id="cwp-hint" style="font-size:11px;color:#94a3b8;"></span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button id="cwp-apply" style="flex:1;padding:7px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">Apply</button>
-        <button id="cwp-even" style="padding:7px 10px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:6px;font-size:12px;cursor:pointer;" title="Distribute evenly">Even</button>
-        <button id="cwp-clear" style="padding:7px 10px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;cursor:pointer;">Clear</button>
-      </div>`;
-
-    function updateTotal() {
-      let sum = 0;
-      for (let i = 0; i < n; i++) {
-        const v = parseFloat(el.querySelector(`#cwp-${i}`).value);
-        if (!isNaN(v)) sum += v;
-      }
-      const tot = el.querySelector('#cwp-total');
-      const hint = el.querySelector('#cwp-hint');
-      tot.textContent = sum + '%';
-      tot.style.color = sum > 100 ? '#dc2626' : sum === 100 ? '#16a34a' : '#334155';
-      hint.textContent = sum === 100 ? '✓' : sum > 100 ? '⚠ over 100' : 'should = 100';
-      hint.style.color = sum === 100 ? '#16a34a' : '#94a3b8';
-    }
-
-    for (let i = 0; i < n; i++) el.querySelector(`#cwp-${i}`).addEventListener('input', updateTotal);
-    updateTotal();
-
-    el.querySelector('#cwp-close').onclick = () => { el.style.display = 'none'; };
-
-    el.querySelector('#cwp-apply').onclick = () => {
-      const widths = [];
-      for (let i = 0; i < n; i++) {
-        const v = parseFloat(el.querySelector(`#cwp-${i}`).value);
-        widths.push(isNaN(v) || v <= 0 ? null : v + '%');
-      }
-      applyWidths(table, widths);
-      el.style.display = 'none';
-    };
-
-    el.querySelector('#cwp-even').onclick = () => {
-      const each = Math.floor(100 / n);
-      for (let i = 0; i < n; i++) el.querySelector(`#cwp-${i}`).value = each;
-      updateTotal();
-    };
-
-    el.querySelector('#cwp-clear').onclick = () => {
-      for (let i = 0; i < n; i++) el.querySelector(`#cwp-${i}`).value = '';
-      updateTotal();
-    };
-  }
-
-  el.show = function(table, anchorEl) {
-    render(table);
-    if (anchorEl) {
-      const r = anchorEl.getBoundingClientRect();
-      let left = r.left;
-      if (left + 268 > window.innerWidth - 8) left = window.innerWidth - 276;
-      el.style.top = (r.bottom + 6) + 'px';
-      el.style.left = left + 'px';
-    }
-    el.style.display = 'block';
-  };
-
-  document.addEventListener('mousedown', (e) => {
-    if (el.style.display === 'none') return;
-    if (!el.contains(e.target)) el.style.display = 'none';
-  }, true);
-
-  return el;
-})();
-
-let _activeColWidthBtn = null;
-
-const tableColWidthPlugin = {
-  name: 'tableColWidth',
-  display: 'command',
-  title: 'Set Column Widths (%)',
-  innerHTML: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><text x="4.5" y="15.5" font-size="5.5" fill="currentColor" stroke="none" font-family="monospace">%</text></svg>',
-  add: function(core, targetElement) {
-    targetElement.addEventListener('mousedown', () => { _activeColWidthBtn = targetElement; });
-  },
-  action: function() {
-    const selection = this.getSelection();
-    let node = selection ? selection.anchorNode : null;
-    if (!node) return;
-    if (node.nodeType === 3) node = node.parentElement;
-    const table = node ? node.closest('table') : null;
-    if (!table) { showToast('Place cursor inside a table first', 'warning'); return; }
-    colWidthPanel.show(table, _activeColWidthBtn);
-  }
-};
 
 // Tab switching
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -554,9 +170,8 @@ const varPanel = (function () {
     return q ? all.filter(v => v.insert.toLowerCase().includes(q)) : all;
   }
 
-  function render(vars, q) {
-    const items = buildList(vars, q);
-    const rows = items.length
+  function buildRowsHtml(items) {
+    return items.length
       ? items.map(it => {
           const ins = it.insert.replace(/"/g, '&quot;');
           return `<div class="vp-row" data-insert="${ins}"
@@ -570,29 +185,9 @@ const varPanel = (function () {
           </div>`;
         }).join('')
       : '<div style="padding:24px;text-align:center;font-size:12px;color:#94a3b8;">No matching variables</div>';
+  }
 
-    el.innerHTML = `
-      <div style="padding:12px 14px 8px;border-bottom:1px solid #f1f5f9;flex-shrink:0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span style="font-size:13px;font-weight:600;color:#1e293b;">Insert Variable</span>
-          <button id="vp-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;line-height:1;padding:0 2px;">&#10005;</button>
-        </div>
-        <input id="vp-search" type="text" placeholder="Search variables…" value="${escapeHtml(q || '')}"
-               style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;box-sizing:border-box;outline:none;">
-      </div>
-      <div style="display:flex;gap:10px;padding:6px 10px 4px;flex-shrink:0;">
-        <span style="font-size:10px;color:#2563eb;">■ VAR = value</span>
-        <span style="font-size:10px;color:#7c3aed;">■ ROW = table row field</span>
-        <span style="font-size:10px;color:#059669;">■ ARR = array</span>
-      </div>
-      <div id="vp-list" style="overflow-y:auto;flex:1;padding:4px 6px 8px;">${rows}</div>`;
-
-    el.querySelector('#vp-close').onclick = () => { el.style.display = 'none'; };
-
-    const searchEl = el.querySelector('#vp-search');
-    searchEl.addEventListener('input', e => render(vars, e.target.value));
-    searchEl.addEventListener('keydown', e => { if (e.key === 'Escape') el.style.display = 'none'; });
-
+  function attachRowHandlers() {
     el.querySelectorAll('.vp-row').forEach(row => {
       row.addEventListener('mouseenter', () => { row.style.background = '#f8fafc'; });
       row.addEventListener('mouseleave', () => { row.style.background = ''; });
@@ -600,7 +195,6 @@ const varPanel = (function () {
         navigator.clipboard.writeText(row.dataset.insert).then(() => {
           showToast(`Copied: ${row.dataset.insert}`, 'success');
         }).catch(() => {
-          // Fallback for browsers that block clipboard API
           const tmp = document.createElement('textarea');
           tmp.value = row.dataset.insert;
           tmp.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
@@ -613,6 +207,38 @@ const varPanel = (function () {
         el.style.display = 'none';
       });
     });
+  }
+
+  function render(vars) {
+    // Build the full panel structure once — input element is never rebuilt after this
+    el.innerHTML = `
+      <div style="padding:12px 14px 8px;border-bottom:1px solid #f1f5f9;flex-shrink:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:13px;font-weight:600;color:#1e293b;">Insert Variable</span>
+          <button id="vp-close" style="background:none;border:none;cursor:pointer;font-size:16px;color:#94a3b8;line-height:1;padding:0 2px;">&#10005;</button>
+        </div>
+        <input id="vp-search" type="text" placeholder="Search variables…"
+               style="width:100%;padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;box-sizing:border-box;outline:none;">
+      </div>
+      <div style="display:flex;gap:10px;padding:6px 10px 4px;flex-shrink:0;">
+        <span style="font-size:10px;color:#2563eb;">■ VAR = value</span>
+        <span style="font-size:10px;color:#7c3aed;">■ ROW = table row field</span>
+        <span style="font-size:10px;color:#059669;">■ ARR = array</span>
+      </div>
+      <div id="vp-list" style="overflow-y:auto;flex:1;padding:4px 6px 8px;">${buildRowsHtml(buildList(vars, ''))}</div>`;
+
+    el.querySelector('#vp-close').onclick = () => { el.style.display = 'none'; };
+
+    const searchEl = el.querySelector('#vp-search');
+
+    // On each keystroke: update ONLY the list — never touch the input element
+    searchEl.addEventListener('input', e => {
+      el.querySelector('#vp-list').innerHTML = buildRowsHtml(buildList(vars, e.target.value));
+      attachRowHandlers();
+    });
+    searchEl.addEventListener('keydown', e => { if (e.key === 'Escape') el.style.display = 'none'; });
+
+    attachRowHandlers();
 
     setTimeout(() => { const s = el.querySelector('#vp-search'); if (s) s.focus(); }, 40);
   }
@@ -629,7 +255,7 @@ const varPanel = (function () {
       return;
     }
     el.style.display = 'flex';
-    render(vars, '');
+    render(vars);
 
     if (anchorEl) {
       const r = anchorEl.getBoundingClientRect();
@@ -666,154 +292,96 @@ document.querySelectorAll('.js-editor-snippet').forEach((btn) => {
       showToast(`Open the ${target} editor first`, 'warning');
       return;
     }
-    const existing = editors[target].getContents() || '';
-    const spacer = existing && existing !== '<p><br></p>' ? '&nbsp;' : '';
-    editors[target].setContents(existing === '<p><br></p>' ? snippet : existing + spacer + snippet);
+    const existing = editors[target].value || '';
+    const spacer = existing.trim() !== '' ? '&nbsp;' : '';
+    editors[target].value = existing.trim() === '' ? snippet : existing + spacer + snippet;
   });
 });
-
-// Vertical line shown during column drag-resize
-const colResizeLine = document.createElement('div');
-colResizeLine.style.cssText = 'display:none;position:fixed;top:0;height:100vh;width:2px;background:#2563eb;z-index:99999;pointer-events:none;opacity:0.75;';
-document.body.appendChild(colResizeLine);
-
-function initTableColumnResize(editorEl) {
-  if (!editorEl || editorEl._colResizeInit) return;
-  editorEl._colResizeInit = true;
-
-  const THRESHOLD = 6; // px from cell right edge that activates resize cursor
-
-  let hoveredCell = null;
-
-  function getCell(e) {
-    let el = e.target;
-    while (el && el !== editorEl) {
-      if (el.tagName === 'TD' || el.tagName === 'TH') return el;
-      el = el.parentElement;
-    }
-    return null;
-  }
-
-  function nearRightEdge(e, cell) {
-    const rect = cell.getBoundingClientRect();
-    return e.clientX >= rect.right - THRESHOLD && e.clientX <= rect.right + THRESHOLD;
-  }
-
-  // Change cursor when hovering near a column border
-  editorEl.addEventListener('mousemove', (e) => {
-    const cell = getCell(e);
-    if (hoveredCell && hoveredCell !== cell) {
-      hoveredCell.style.removeProperty('cursor');
-      hoveredCell = null;
-    }
-    if (!cell) return;
-    if (nearRightEdge(e, cell)) {
-      cell.style.cursor = 'col-resize';
-      hoveredCell = cell;
-    } else {
-      cell.style.removeProperty('cursor');
-      hoveredCell = null;
-    }
-  });
-
-  editorEl.addEventListener('mouseleave', () => {
-    if (hoveredCell) { hoveredCell.style.removeProperty('cursor'); hoveredCell = null; }
-  });
-
-  // Start drag on mousedown near a column border
-  editorEl.addEventListener('mousedown', (e) => {
-    const cell = getCell(e);
-    if (!cell || !nearRightEdge(e, cell)) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const startX   = e.clientX;
-    const startW   = cell.offsetWidth;
-    const colIdx   = Array.from(cell.parentElement.cells).indexOf(cell);
-    const tbl      = cell.closest('table');
-
-    tbl.style.tableLayout = 'fixed';
-    if (!tbl.style.width) tbl.style.width = '100%';
-
-    // Show position indicator line
-    const initRight = cell.getBoundingClientRect().right;
-    colResizeLine.style.left    = initRight + 'px';
-    colResizeLine.style.display = 'block';
-
-    document.body.style.cursor     = 'col-resize';
-    document.body.style.userSelect = 'none';
-
-    function onMove(ev) {
-      const newW = Math.max(20, startW + (ev.clientX - startX));
-      tbl.querySelectorAll('tr').forEach(r => {
-        const c = r.cells[colIdx];
-        if (c) c.style.width = newW + 'px';
-      });
-      colResizeLine.style.left = ev.clientX + 'px';
-    }
-
-    function onUp() {
-      colResizeLine.style.display   = 'none';
-      document.body.style.cursor    = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup',   onUp);
-    }
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup',   onUp);
-  });
-}
 
 function initRichEditor(key) {
   try {
     if (!editors[key]) {
       const config = {
         height: '100%',
-        strictHTMLValidation: false,
-        lineAttrReset: 'class|style',
-        attributesWhitelist: {
-          all: 'style|class|data-.+',
-          table: 'style|class|border|cellpadding|cellspacing|width',
-          colgroup: 'style|class|span',
-          col: 'style|class|span|width',
-          thead: 'style|class',
-          tbody: 'style|class',
-          tr: 'style|class',
-          th: 'style|class|colspan|rowspan|width',
-          td: 'style|class|colspan|rowspan|width'
+        minHeight: 300,
+        buttons: [
+          'undo', 'redo', '|',
+          'bold', 'strikethrough', 'underline', 'italic', '|',
+          'superscript', 'subscript', '|',
+          'font', 'fontsize', 'brush', 'paragraph', '|',
+          'align', 'ul', 'ol', '|',
+          'outdent', 'indent', '|',
+          'hr', 'table', '|',
+          'link', 'image', 'uploadImage', '|',
+          'eraser', 'copyformat', '|',
+          'symbols', '|',
+          'pageBreak', '|',
+          'fullsize', 'source', 'preview', 'print'
+        ],
+        extraButtons: [
+          {
+            name: 'uploadImage',
+            tooltip: 'Upload Image from Computer',
+            iconHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 13a1 1 0 0 0-1 1v4H6v-4a1 1 0 0 0-2 0v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4a1 1 0 0 0-1-1zm-7-9.41-2.29 2.3a1 1 0 0 1-1.42-1.42l4-4a1 1 0 0 1 1.42 0l4 4a1 1 0 0 1-1.42 1.42L13 3.59V14a1 1 0 0 1-2 0V3.59z"/></svg>',
+            exec(editor) {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/svg+xml';
+              input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+              document.body.appendChild(input);
+              input.addEventListener('change', () => {
+                const file = input.files && input.files[0];
+                document.body.removeChild(input);
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                  showToast('Image must be under 5 MB', 'error');
+                  return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  editor.s.insertHTML(
+                    `<img src="${e.target.result}" alt="${file.name.replace(/"/g, '')}" style="max-width:100%;">`
+                  );
+                };
+                reader.readAsDataURL(file);
+              });
+              input.click();
+            }
+          },
+          {
+            name: 'pageBreak',
+            tooltip: 'Insert Page Break',
+            iconHTML: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4 15h16v2H4zm0 4h16v2H4zM4 5h16v2H4zm0 4h16v2H4zm0-8h16v2H4zm0 4h5v2H4zm11 0h5v2h-5z"/></svg>',
+            exec(editor) {
+              editor.s.insertHTML('<div style="page-break-after:always;height:0;border-top:2px dashed #94a3b8;margin:8px 0;"></div>');
+            }
+          }
+        ],
+        uploader: {
+          insertImageAsBase64URI: true
         },
-        plugins: [
-          pageBreakPlugin,
-          tableCellBackgroundPlugin,
-          tableBorderSettingsPlugin,
-          tableFullWidthPlugin,
-          tableColWidthPlugin
-        ],
-        buttonList: [
-          ['undo', 'redo'],
-          ['font', 'fontSize', 'formatBlock'],
-          ['bold', 'underline', 'italic', 'strike', 'subscript', 'superscript'],
-          ['fontColor', 'hiliteColor', 'textStyle'],
-          ['removeFormat'],
-          ['outdent', 'indent'],
-          ['align', 'horizontalRule', 'list', 'table'],
-          ['tableCellBackground', 'tableBorderSettings', 'tableFullWidth', 'tableColWidth'],
-          ['pageBreak'],
-          ['link', 'image', 'video'],
-          ['fullScreen', 'showBlocks', 'codeView'],
-          ['preview', 'print']
-        ],
-        placeholder: key === 'html' ? 'Start typing...' : `${key} HTML...`,
-        onload: function(core) {
-          const wysiwyg = core.context.element.wysiwyg;
-          if (wysiwyg) initTableColumnResize(wysiwyg);
-        }
+        createAttributes: {
+          table: { style: 'border-collapse:collapse;width:100%' },
+          td:    { style: 'border:1px solid #000;padding:8px' },
+          th:    { style: 'border:1px solid #000;padding:8px;font-weight:bold;background:#f8fafc' }
+        },
+        cleanHTML: {
+          timeout: 300,
+          denyTags: false,
+          allowTags: false,
+          fillEmptyParagraph: false,
+          replaceNBSP: false
+        },
+        askBeforePasteHTML: false,
+        askBeforePasteFromWord: false,
+        processPasteHTML: false,
+        disablePlugins: ['speechRecognize'],
+        placeholder: key === 'html' ? 'Start typing...' : `${key} HTML...`
       };
-      editors[key] = SUNEDITOR.create(`${key}-rich-editor`, config);
+
+      editors[key] = Jodit.make(`#${key}-rich-editor`, config);
       if (pendingEditorContent[key] !== undefined) {
-        editors[key].setContents(pendingEditorContent[key]);
+        editors[key].value = pendingEditorContent[key];
         delete pendingEditorContent[key];
       }
     }
@@ -826,7 +394,7 @@ function initRichEditor(key) {
 function clearAllEditors() {
   ['html', 'header', 'footer'].forEach(key => {
     if (editors[key]) {
-      editors[key].setContents('');
+      editors[key].value = '';
     }
     delete pendingEditorContent[key];
   });
@@ -960,7 +528,7 @@ document.getElementById('btn-docs').addEventListener('click', () => showView('do
 function getEditorContent(key) {
   if (['html', 'header', 'footer'].includes(key)) {
     if (editors[key]) {
-      let content = editors[key].getContents() || '';
+      let content = editors[key].value || '';
       if (key === 'html') {
         return unescapeTemplateSyntax(content);
       }
@@ -992,8 +560,8 @@ function setEditorContent(key, html) {
     if (key === 'header' || key === 'footer') {
       content = encodeHeaderFooterPlaceholders(content);
     }
-    if (editors[key] && editors[key].setContents) {
-      editors[key].setContents(content);
+    if (editors[key]) {
+      editors[key].value = content;
     } else {
       pendingEditorContent[key] = content;
     }
@@ -1065,6 +633,48 @@ function unescapeTemplateSyntax(html) {
       return match;
     }
   });
+}
+
+function evaluateMathExpr(expr) {
+  const sanitized = String(expr).replace(/[^0-9+\-*/.() \t]/g, '').trim();
+  if (!sanitized) return '0';
+  try {
+    const result = new Function('return (' + sanitized + ')')(); // eslint-disable-line no-new-func
+    if (typeof result !== 'number' || !isFinite(result)) return '0';
+    return parseFloat(result.toFixed(10)).toString();
+  } catch (e) {
+    return 'NaN';
+  }
+}
+
+function processMathExpressions(html, data, loopContext) {
+  if (!html || !html.includes('#$math(')) return html;
+  let result = '';
+  let i = 0;
+  while (i < html.length) {
+    const start = html.indexOf('#$math(', i);
+    if (start === -1) { result += html.slice(i); break; }
+    result += html.slice(i, start);
+    // Track parenthesis depth to find the matching closing paren
+    let depth = 1;
+    let j = start + 7;
+    while (j < html.length && depth > 0) {
+      if (html[j] === '(') depth++;
+      else if (html[j] === ')') depth--;
+      if (depth > 0) j++;
+    }
+    if (depth !== 0) { result += '#$math('; i = start + 7; continue; }
+    const expression = html.slice(start + 7, j);
+    // Resolve [[${varName}]] references to their numeric values
+    const resolvedExpr = expression.replace(/\[\[\$\{([\w.@]+)\}\]\]/g, (_, varPath) => {
+      const val = resolveVariable(varPath, data, loopContext);
+      const num = parseFloat(String(val));
+      return isNaN(num) ? '0' : String(num);
+    });
+    result += evaluateMathExpr(resolvedExpr);
+    i = j + 1;
+  }
+  return result;
 }
 
 function parseTableBlock(content) {
@@ -1142,6 +752,8 @@ function processTemplate(html, data, loopContext) {
     return value !== undefined && value !== null ? String(value) : '';
   });
 
+  rendered = processMathExpressions(rendered, data, loopContext);
+
   return rendered;
 }
 
@@ -1206,19 +818,17 @@ function renderTemplatePreview(html, css, data, watermark) {
     }
   }
 
-  const sunEditorCompatCss = `
-    .__se__float-left { float: left !important; clear: none !important; display: block; width: auto; margin-right: 12px !important; margin-left: 0 !important; margin-bottom: 8px; }
-    .__se__float-right { float: right !important; clear: none !important; display: block; width: auto; margin-left: 12px !important; margin-right: 0 !important; margin-bottom: 8px; }
-    .__se__float-center { float: none !important; clear: both !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; }
-    .__se__float-none { float: none !important; clear: both !important; display: block !important; width: fit-content !important; max-width: 100%; margin-left: auto !important; margin-right: auto !important; }
-    .se-image-container { max-width: 100%; height: auto; }
-    .se-video-container { width: auto; height: auto; max-width: 100%; }
+  const editorCompatCss = `
+    body { margin: 0; padding: 0; }
+    p { margin: 0; padding: 0; }
     table { border-collapse: collapse; width: 100%; }
-    td, th { padding: 8px; word-break: break-word; }
+    td, th { border: 1px solid #000; padding: 8px; word-break: break-word; }
+    img { max-width: 100%; height: auto; }
+    iframe { max-width: 100%; }
   `;
 
   let fullHtml = rendered;
-  const allCss = (css && css.trim() ? css.trim() + '\n' : '') + sunEditorCompatCss;
+  const allCss = (css && css.trim() ? css.trim() + '\n' : '') + editorCompatCss;
   if (fullHtml.includes('</head>')) {
     fullHtml = fullHtml.replace('</head>', `<style>${allCss}</style></head>`);
   } else {
@@ -1714,6 +1324,10 @@ async function loadDocs() {
     html += '<li><code>{{#each items}}...{{/each}}</code> - Loop over array (use <code>{{name}}</code> inside for item properties, <code>{{@index}}</code> for index)</li>';
     html += '<li><code>{{#table items}}header1|header2\n{{field1}}|{{field2}}{{/table}}</code> - Auto-generate table from array (first line = headers, second line = row template cells separated by <code>|</code>)</li>';
     html += '</ul>';
+    html += '<h3>Math Expressions</h3>';
+    html += '<p>Use <code>#$math(expression)</code> to evaluate arithmetic. Reference variables inside with <code>[[${varName}]]</code> (values are coerced to numbers; non-numeric values become <code>0</code>).</p>';
+    html += '<pre>#$math([[${price}]] * [[${qty}]])\n#$math([[${subtotal}]] + [[${tax}]] - [[${discount}]])\n#$math(([[${a}]] + [[${b}]]) / 2)</pre>';
+    html += '<p>Supports <code>+ - * / ()</code>. The result is a plain number (trailing zeros removed). Works inside <code>{{#each}}</code> loops — loop-item variables resolve correctly.</p>';
 
     html += '<h3>Header / Footer</h3>';
     html += '<p>Use inline CSS only. Available placeholders:</p>';
@@ -1725,7 +1339,7 @@ async function loadDocs() {
 
     html += '<h3>Rich Editor</h3>';
     html += '<p>The editor is always in WYSIWYG mode for HTML content. Use the toolbar to format text, insert tables, images, and page breaks.</p>';
-    html += '<p>Table formatting tools include: <strong>Cell Background Color</strong>, <strong>Table Border Color</strong>, and <strong>Table Border Width</strong>.</p>';
+    html += '<p>Table tools: right-click any table cell to access <strong>Cell Properties</strong> (background color, borders, padding) and <strong>Table Properties</strong> (width, alignment, borders). Drag column borders to resize columns.</p>';
     html += '<p>Use the <strong>Page Break</strong> button to insert a page break in your document.</p>';
 
     html += '<h3>Preview & Download</h3>';
